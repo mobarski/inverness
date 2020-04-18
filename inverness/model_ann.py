@@ -1,4 +1,3 @@
-import nmslib
 from tqdm import tqdm
 
 try:
@@ -10,6 +9,7 @@ class ANN():
 
 	@timed
 	def init_dense_ann(self, method='hnsw', space='cosinesimil', save=True, **kwargs):
+		import nmslib
 		self.dense_ann = nmslib.init(method=method, space=space)
 		dense = self.dense
 		dense = tqdm(dense, desc='ann_input')
@@ -21,6 +21,7 @@ class ANN():
 
 	@timed
 	def init_sparse_ann(self, method='hnsw', space='cosinesimil_sparse', save=True, **kwargs):
+		import nmslib
 		self.sparse_ann = nmslib.init(method=method, space=space, data_type=nmslib.DataType.SPARSE_VECTOR)
 		sparse = self.sparse
 		sparse = tqdm(sparse, desc='ann_input')
@@ -31,10 +32,12 @@ class ANN():
 			self.sparse_ann.saveIndex(self.path+'ann_sparse.bin',save_data=True)
 
 	def load_dense_ann(self):
+		import nmslib
 		self.dense_ann = nmslib.init(method='hnsw', space='cosinesimil')
 		self.dense_ann.loadIndex(self.path+'ann_dense.bin',load_data=True)
 
 	def load_sparse_ann(self):
+		import nmslib
 		self.sparse_ann = nmslib.init(method='hnsw', space='cosinesimil_sparse', data_type=nmslib.DataType.SPARSE_VECTOR)
 		self.sparse_ann.loadIndex(self.path+'ann_sparse.bin',load_data=True)
 

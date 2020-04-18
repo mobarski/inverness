@@ -60,12 +60,12 @@ class TFIDF():
 		id_iter = tqdm(id_iter,'sparse',len(self.meta))
 		with mp.Pool(
 					workers,
-					init_sparse_worker_mk2,
+					init_sparse_worker,
 					[
 						self.path,
 					]
 				) as pool:
-			sparse = pool.imap(sparse_worker_mk2, id_iter, chunksize)
+			sparse = pool.imap(sparse_worker, id_iter, chunksize)
 			for a in sparse:
 				#print('mp_sparse',a)
 				s.append(a)
@@ -88,6 +88,25 @@ class TFIDF():
 
 # ---[ MULTIPROCESSING ]--------------------------------------------------------
 
+def init_sparse_worker(*args):
+	global model
+	model_path = args[0]
+	model = TFIDF()
+	model.path = model_path
+	model.bow = sorbet(model.path+'bow').load()
+	model.load_tfidf()
+
+
+def sparse_worker(doc_id):
+	bow = model.bow[doc_id]
+	sparse = model.tfidf[bow]
+	a = array('f')
+	for i_v in sparse:
+		a.extend(i_v)
+	return a
+
+
+# tragiczna wydajnosc 
 def init_sparse_worker_mk2(*args):
 	global model
 	from .model_dictionary import Dictionary
@@ -101,29 +120,12 @@ def init_sparse_worker_mk2(*args):
 	model.load_sentencer()
 
 
+# tragiczna wydajnosc 
 def sparse_worker_mk2(doc_id):
 	tokens = []
 	for sen in model.doc_sentences(doc_id):
 		tokens.extend(sen.split(' '))
 	bow = model.dictionary.doc2bow(tokens) or [(0,1)] # 0 -> '<PAD>'
-	sparse = model.tfidf[bow]
-	a = array('f')
-	for i_v in sparse:
-		a.extend(i_v)
-	return a
-
-
-def init_sparse_worker(*args):
-	global model
-	model_path = args[0]
-	model = TFIDF()
-	model.path = model_path
-	model.bow = sorbet(model.path+'bow').load()
-	model.load_tfidf()
-
-
-def sparse_worker(doc_id):
-	bow = model.bow[doc_id]
 	sparse = model.tfidf[bow]
 	a = array('f')
 	for i_v in sparse:

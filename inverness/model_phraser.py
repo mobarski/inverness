@@ -18,8 +18,7 @@ class Phraser():
 
 	@timed
 	def init_phraser(self, components=False, **kwargs):
-		#sentences = self.all_sentences(desc='phraser_input') # 40s
-		sentences = LineSentence(self.path+'sentences.txt.gz') # 30s
+		sentences = LineSentence(self.path+'sentences.txt.gz')
 		phrases = Phrases(sentences, **kwargs)
 		self.phraser = GensimPhraser(phrases)
 		self.phraser.components = components
@@ -54,6 +53,7 @@ class Phraser():
 		else:
 			yield from self.text_to_tokens(text)
 	
+	# TODO jako plik txt.gz
 	@timed
 	def init_phrased(self, storage='disk'):
 		documents = self.doc_iter()

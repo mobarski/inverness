@@ -79,6 +79,7 @@ class Sentencer:
 
 	def load_sentencer(self):
 		self.offset = sorbet(self.path+'offset').load()
+		return self
 
 	def all_sentences(self, desc='sentences'):
 		f = gzip.open(self.path+'sentences.txt.gz', 'rt', encoding='utf8')
@@ -139,6 +140,7 @@ class Sentencer:
 		sentences = self.raw_sentences(desc='sentences')
 		pos = 0
 		sen_cnt = 0
+		tok_cnt = 0
 		prev_doc_id = None
 		for doc_id,sentence in sentences:
 			# end of document
@@ -147,6 +149,7 @@ class Sentencer:
 				offset.append(pos)
 				pos = f.tell()
 			tokens = text_to_tokens(sentence)
+			tok_cnt += len(tokens)
 			if not tokens: continue # skip empty sentences
 			text = ' '.join(tokens)
 			f.write(text)
@@ -161,6 +164,7 @@ class Sentencer:
 		offset.save()
 		self.offset = offset
 		self.sentences_cnt = sen_cnt
+		self.tokens_cnt = tok_cnt
 	
 	
 	def _init_sentences_mp(self, workers=2):
@@ -184,6 +188,7 @@ class Sentencer:
 				) as pool:
 			doc_sen_iter = pool.imap(sentences_worker, doc_id_iter, chunk)
 			sen_cnt = 0
+			tok_cnt = 0 # TODO
 			pos = 0
 			for doc_sen in doc_sen_iter:
 				offset.append(pos)
@@ -219,8 +224,10 @@ def sentences_worker(doc_id):
 	doc = model.get_doc_by_meta(meta)
 	text = model.doc_to_text(doc)
 	out = []
+	tok_cnt = 0
 	for sentence in model.text_to_sentences(text):
 		tokens = model.text_to_tokens(sentence)
+		tok_cnt += len(tokens)
 		if not tokens: continue # skip empty sentences
 		out += [' '.join(tokens)]
 	return out
