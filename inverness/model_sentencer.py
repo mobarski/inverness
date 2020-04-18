@@ -116,7 +116,7 @@ class Sentencer:
 		empty sentences are omitted
 		an empty line marks the end of the document
 		"""
-		_workers = workers or self.params.get('sentences_workers') or self.params.get('workers',1)
+		_workers = workers or self.params.get('sentences__workers') or self.params.get('workers',1)
 		if _workers>1:
 			self._init_sentences_mp(_workers)
 		else:

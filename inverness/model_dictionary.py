@@ -30,14 +30,15 @@ class Dictionary():
 		f = tqdm(f,'dictionary',self.sentences_cnt)
 		unique = set()
 		for line in f:
-			tokens = line.rstrip().split(' ')
-			if not tokens: # end of document
+			line = line.strip()
+			if not line: # end of document
 				dfs.update(unique)
 				num_nnz += len(unique)
 				#
 				doc_id += 1
 				unique = set()
 				continue
+			tokens = line.split(' ')
 			cfs.update(tokens)
 			num_pos += len(tokens)
 			unique.update(tokens)
@@ -49,9 +50,12 @@ class Dictionary():
 		dictionary.num_nnz = num_nnz
 		dictionary.num_docs = doc_id
 		dictionary.token2id = token2id
-		dictionary.cfs = {i:cfs[t] for t,i in token2id.items()}
-		dictionary.dfs = {i:dfs[t] for t,i in token2id.items()}
-		dictionary.patch_with_special_tokens({'<PAD>':0})
+		#dictionary.cfs = {i:cfs[t] for t,i in token2id.items()}
+		#dictionary.dfs = {i:dfs[t] for t,i in token2id.items()}
+		for t,i in token2id.items():
+			dictionary.cfs[i] = cfs[t]
+			dictionary.dfs[i] = dfs[t]
+		#dictionary.patch_with_special_tokens({'<PAD>':0})
 		if save:
 			dictionary.save(self.path+'dictionary.pkl')
 		self.dictionary = dictionary
