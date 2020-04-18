@@ -60,14 +60,15 @@ class TFIDF():
 		id_iter = tqdm(id_iter,'sparse',len(self.meta))
 		with mp.Pool(
 					workers,
-					init_sparse_worker,
+					init_sparse_worker_mk2,
 					[
 						self.path,
 					]
 				) as pool:
-			sparse = pool.imap(sparse_worker, id_iter, chunksize)
-			for sp in sparse:
-				s.append(sp)
+			sparse = pool.imap(sparse_worker_mk2, id_iter, chunksize)
+			for a in sparse:
+				#print('mp_sparse',a)
+				s.append(a)
 		self.sparse = s.save()
 	
 	# TODO raname dfs_query ???
@@ -87,7 +88,6 @@ class TFIDF():
 
 # ---[ MULTIPROCESSING ]--------------------------------------------------------
 
-# TODO sentences zamiast bow
 def init_sparse_worker_mk2(*args):
 	global model
 	from .model_dictionary import Dictionary
@@ -101,7 +101,6 @@ def init_sparse_worker_mk2(*args):
 	model.load_sentencer()
 
 
-# TODO uzycie doc_sentences
 def sparse_worker_mk2(doc_id):
 	tokens = []
 	for sen in model.doc_sentences(doc_id):
@@ -114,7 +113,6 @@ def sparse_worker_mk2(doc_id):
 	return a
 
 
-# TODO sentences zamiast bow
 def init_sparse_worker(*args):
 	global model
 	model_path = args[0]
@@ -124,7 +122,6 @@ def init_sparse_worker(*args):
 	model.load_tfidf()
 
 
-# TODO uzycie doc_sentences
 def sparse_worker(doc_id):
 	bow = model.bow[doc_id]
 	sparse = model.tfidf[bow]

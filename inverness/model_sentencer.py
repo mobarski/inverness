@@ -77,6 +77,9 @@ class Sentencer:
 		# for id,cnt in top:
 			# print(cnt,id,top_text.get(id,'REMOVED'))
 
+	def load_sentencer(self):
+		self.offset = sorbet(self.path+'offset').load()
+
 	def all_sentences(self, desc='sentences'):
 		f = gzip.open(self.path+'sentences.txt.gz', 'rt', encoding='utf8')
 		f = tqdm(f, desc, total=self.sentences_cnt)
@@ -89,7 +92,10 @@ class Sentencer:
 		f.close()
 
 	def doc_sentences(self, doc_id):
-		pos = self.offset[doc_id]
+		try:
+			pos = self.offset[doc_id]
+		except IndexError:
+			raise Exception(f'IndexError: offset[{doc_id}] len(offset)={len(self.offset)}')
 		f = gzip.open(self.path+'sentences.txt.gz', 'rt', encoding='utf8')
 		f.seek(pos)
 		for line in f:
@@ -147,6 +153,10 @@ class Sentencer:
 			f.write('\n')
 			prev_doc_id = doc_id
 			sen_cnt += 1
+		# end of the last document
+		f.write('\n')
+		offset.append(pos)
+		
 		f.close()
 		offset.save()
 		self.offset = offset
