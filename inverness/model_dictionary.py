@@ -21,12 +21,13 @@ class Dictionary():
 	def init_dictionary(self, save=True):
 		import gzip
 		from collections import Counter
+		corpus_file = self.params.get('dictionary__corpus_file') or self.params.get('corpus_file') or 'sentences.txt.gz'
 		doc_id = 0
 		num_pos = 0
 		num_nnz = 0
 		cfs = Counter()
 		dfs = Counter()
-		f = gzip.open(self.path+'sentences.txt.gz', 'rt',encoding='utf8')
+		f = gzip.open(self.path+corpus_file, 'rt',encoding='utf8')
 		f = tqdm(f,'dictionary',self.sentences_cnt)
 		unique = set()
 		for line in f:

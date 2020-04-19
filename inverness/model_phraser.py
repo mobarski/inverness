@@ -2,7 +2,12 @@ from gensim.models.phrases import Phrases
 from gensim.models.phrases import Phraser as GensimPhraser
 from gensim.models.word2vec import LineSentence
 from tqdm import tqdm
+
+from collections import Counter
 import multiprocessing as mp
+import pickle
+import math
+import gzip
 import os
 
 try:
@@ -14,6 +19,29 @@ except (ModuleNotFoundError,ImportError):
 
 # ---[ MODEL ]------------------------------------------------------------------
 
+class phraser:
+
+	def __getitem__v1(self, tokens, dlm='_'):
+		if not tokens: return []
+		out = [tokens[0]]
+		for i in range(1,len(tokens)):
+			if (tokens[i-1],tokens[i]) in self.pairs:
+				out[-1] = out[-1]+dlm+tokens[i]
+			else:
+				out.append(tokens[i])
+		return out
+
+	def __getitem__(self, tokens, dlm='_'):
+		if not tokens: return []
+		out = [tokens[0]]
+		for a,b in zip(tokens,tokens[1:]):
+			if (a,b) in self.pairs:
+				out[-1] = out[-1] +dlm+ b
+			else:
+				out.append(b)
+		return out
+
+
 class Phraser():
 
 	@timed
@@ -24,6 +52,67 @@ class Phraser():
 		self.phraser.components = components
 		self.phraser.save(self.path+'phraser.pkl')
 		del phrases
+	
+	@timed
+	def init_phraser_mk2(self):
+		self.phraser = phraser()
+		min_freq = 10 # TODO params
+		min_npmi = 0.8 # TODO params
+		cf = Counter()
+		pairs = []
+		tok_cnt = 0
+		# TODO mozliwosc wykonania na raty (aby oszczedzac RAM)
+		for _,sen in self.all_sentences('sentences.txt.gz',desc='phraser_mk2'):
+			tokens = sen.split(' ')
+			tok_cnt += len(tokens)
+			pairs.extend(zip(tokens,tokens[1:]))
+			cf.update(tokens)
+		pf = Counter(pairs)
+		#
+		log = math.log
+		pairs = set()
+		npmis = {} # diag
+		pmis = {} # diag
+		pfs = {} # diag
+		for (a,b),fp in pf.items():
+			if fp >= min_freq:
+				pa = cf[a] / tok_cnt
+				pb = cf[b] / tok_cnt
+				pp = fp / tok_cnt
+				expected = pa * pb * tok_cnt
+				lift = fp / expected
+				pmi = log( pp / (pa*pb) ) # point-wise mutual information
+				npmi = pmi / -log(pp) # normalized pmi
+				if npmi >= min_npmi:
+					pairs.add((a,b))
+					npmis[(a,b)] = npmi
+					pmis[(a,b)] = pmi
+					pfs[(a,b)] = fp
+					#print(f'pair {npmi:.03f} {a} {b} {fp}') # XXX
+		self.phraser.pairs = pairs
+		self.phraser.npmis = npmis
+		self.phraser.pmis = pmis
+		self.phraser.pfs = pfs
+		pickle.dump(self.phraser, open(self.path+'phraser_mk2.pkl','wb'))
+	
+	
+	def load_phraser_mk2(self):
+		self.phraser = pickle.load(open(self.path+'phraser_mk2.pkl','rb'))
+
+	@timed
+	def init_phrased_mk2(self):
+		gzip_level = self.params.get('phrased__gzip_level',1) 
+		f = gzip.open(self.path+'phrased.txt.gz', 'wt',
+		              encoding='utf8', compresslevel=gzip_level)
+		for _,sen in self.all_sentences('sentences.txt.gz', desc='phrased_mk2'):
+			if not sen:
+				f.write('\n')
+				continue
+			tokens = sen.split(' ')
+			phrased = ' '.join(self.phraser[tokens])
+			f.write(phrased)
+			f.write('\n')
+		f.close()
 	
 	def skip_phraser(self):
 		self.phraser = None

@@ -17,73 +17,34 @@ except (ModuleNotFoundError,ImportError):
 	# """64bit hash from text"""
 	# return int(md5(text.lower().encode()).hexdigest()[:16],16)
 
+class sentencer: pass
+
 class Sentencer:
 
-	# @timed
-	# def init_sentencer(self, no_above=None, no_matching=None):
-		# self.sentencer = sen = Counter()
-		# self.sentencer_no_above = no_above
-		# self.sentencer_no_matching = no_matching
-		# cnt = 0
-		# sentences = self.all_sentences(as_tokens=False, desc='sentencer')
-		# for text in sentences:
-			# h = my_hash(text)
-			# sen[h] += 1
-			# cnt += 1
-		# with open(self.path+'sentencer.pkl','wb') as f:
-			# pickle.dump(sen, f)
-			# pickle.dump(no_above, f)
-			# pickle.dump(no_matching, f)
-	
-	# def skip_sentencer(self):
-		# self.sentencer = None
-		# self.sentencer_no_above = None
-		# self.sentencer_no_matching = None
-		# pass # TODO
-	
-	# def load_sentencer(self):
-		# with open(self.path+'sentencer.pkl','rb') as f:
-			# self.sentencer = pickle.load(f)
-			# self.sentencer_no_above = pickle.load(f)
-			# self.sentencer_no_matching = pickle.load(f)
-
-	# def all_sentences(self, as_tokens=True, clean=True, desc='sentences'):
-		# cnt = self.sentencer
-		# no_above = self.sentencer_no_above
-		# no_matching = self.sentencer_no_matching
-		# doc_iter = self.doc_iter()
-		# doc_iter = tqdm(doc_iter, desc=desc, total=len(self.meta))
-		# for doc in doc_iter:
-			# text = self.doc_to_text(doc)
-			# sentences = self.text_to_sentences(text)
-			# if cnt:
-				# for s in sentences:
-					# h = my_hash(s)
-					# if clean and no_above and cnt.get(h,0)>no_above: continue # skip common sentences (copyright etc)
-					# if clean and no_matching and no_matching.findall(s): continue # skip matching sentences
-					# yield self.text_to_tokens(s) if as_tokens else s
-			# else:
-				# for s in sentences:
-					# yield self.text_to_tokens(s) if as_tokens else s
-
-	# def explain_sentencer(self, k):
-		# top = self.sentencer.most_common(k)
-		# top_ids = set([x[0] for x in top])
-		# top_text = {}
-		# for text in self.all_sentences(as_tokens=False, clean=False):
-			# h = my_hash(text)
-			# if h in top_ids:
-				# top_text[h] = text
-		# for id,cnt in top:
-			# print(cnt,id,top_text.get(id,'REMOVED'))
+	@timed
+	def init_sentencer(self, workers=None):
+		"""store line sentences after tokenization
+		
+		empty sentences are omitted
+		an empty line marks the end of the document
+		"""
+		self.sentencer = sentencer()
+		_workers = workers or self.params.get('sentences__workers') or self.params.get('workers',1)
+		if _workers>1:
+			self._init_sentences_mp(_workers)
+		else:
+			self._init_sentences_sp()
+		pickle.dump(self.sentencer, open(self.path+'sentencer.pkl','wb'))
 
 	def load_sentencer(self):
 		self.offset = sorbet(self.path+'offset').load()
+		self.sentencer = pickle.load(open(self.path+'sentencer.pkl','rb'))
 		return self
 
-	def all_sentences(self, desc='sentences'):
-		f = gzip.open(self.path+'sentences.txt.gz', 'rt', encoding='utf8')
-		f = tqdm(f, desc, total=self.sentences_cnt)
+	def all_sentences(self, corpus_file=None, desc='sentences'):
+		_corpus_file = corpus_file or self.params.get('corpus_file') or 'sentences.txt.gz'
+		f = gzip.open(self.path+_corpus_file, 'rt', encoding='utf8')
+		f = tqdm(f, desc, total=self.sentencer.sentences_cnt)
 		doc_id = 0
 		for line in f:
 			sen = line.rstrip()
@@ -92,12 +53,13 @@ class Sentencer:
 				doc_id += 1
 		f.close()
 
-	def doc_sentences(self, doc_id):
+	def doc_sentences(self, doc_id, corpus_file=None):
+		_corpus_file = corpus_file or self.params.get('corpus_file') or 'sentences.txt.gz'
 		try:
 			pos = self.offset[doc_id]
 		except IndexError:
 			raise Exception(f'IndexError: offset[{doc_id}] len(offset)={len(self.offset)}')
-		f = gzip.open(self.path+'sentences.txt.gz', 'rt', encoding='utf8')
+		f = gzip.open(self.path+_corpus_file, 'rt', encoding='utf8')
 		f.seek(pos)
 		for line in f:
 			sen = line.rstrip()
@@ -115,21 +77,6 @@ class Sentencer:
 			for sen in sentences:
 				yield doc_id,sen
 	
-	
-	@timed
-	def init_sentences(self, workers=None):
-		"""store line sentences after tokenization
-		
-		empty sentences are omitted
-		an empty line marks the end of the document
-		"""
-		_workers = workers or self.params.get('sentences__workers') or self.params.get('workers',1)
-		if _workers>1:
-			self._init_sentences_mp(_workers)
-		else:
-			self._init_sentences_sp()
-		# TODO store self.sentences_cnt in sentences_meta.pkl
-
 
 	def _init_sentences_sp(self):
 		offset = sorbet(self.path+'offset').new()
@@ -163,8 +110,8 @@ class Sentencer:
 		f.close()
 		offset.save()
 		self.offset = offset
-		self.sentences_cnt = sen_cnt
-		self.tokens_cnt = tok_cnt
+		self.sentencer.sentences_cnt = sen_cnt
+		self.sentencer.tokens_cnt = tok_cnt
 	
 	
 	def _init_sentences_mp(self, workers=2):
@@ -205,7 +152,8 @@ class Sentencer:
 		f.close()
 		offset.save()
 		self.offset = offset
-		self.sentences_cnt = sen_cnt
+		self.sentencer.sentences_cnt = sen_cnt
+		self.sentencer.tokens_cnt = tok_cnt # TODO
 
 
 
